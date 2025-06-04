@@ -51,7 +51,6 @@ void adc16b_initialize (void)
     // Configure ADC sampling time (16-bit conversion; ADCLK at High-speed mode)
     // 18 ADCLK clocks per conversion (RA2A1 manual table 32.15)
     R_ADC0->ADSSTRO_b.SST = 18;
-    R_ADC0->ADSSTRO_b.SST = 18;
 
     R_ADC_ScanCfg (&adc0_ctrl, &adc0_channel_cfg);
     R_ADC_Calibrate (&adc0_ctrl, NULL);

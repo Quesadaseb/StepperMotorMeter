@@ -17,7 +17,7 @@ static uint8_t      iStep = 5;
 extern uint32_t     totalSteps = 0;
 volatile bool       pointerBoundaryDetect = false;
 volatile bool       pointerBoundaryDetect_lowerlimit = false;
-uint32_t            timeDelay_ms = 0;
+volatile uint32_t   timeDelay_ms = 0;
 extern int          IntsignalVal;
 extern bool         withinRange;
 extern bool         calComplete;

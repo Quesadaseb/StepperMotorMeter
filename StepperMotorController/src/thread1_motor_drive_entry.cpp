@@ -26,22 +26,14 @@ auto lastActionTime = std::chrono::high_resolution_clock::now();
 extern volatile bool           power_interrupt = false;
 extern volatile bool           wake_interrupt = false;
 extern bool             failedCal;
-bool                    initialCompleted = false;
-static uint32_t         meter_resolution = 0;
-bool                    pwrInt;
 double                  signalValadc = 0;               // ADC value
 double                  signalVal;
-extern int              IntsignalVal = 0;       
-int                     cnt = 0;
-bool                    flex_sensor;
+extern int              IntsignalVal = 0;
 extern bool             withinRange = 1;                // Within range flag
 extern bool             calComplete = 0;                // Calibration complete flag
-uint32_t                numberStep;
 extern uint32_t         totalSteps;
-uint32_t                lb = 5, ub = 200;
 extern uint32_t         currPos = 0;
 uint32_t                hysteresis = 2;
-uint32_t                nextRandNum;
 extern uint32_t         newRange = 0;                   // New range of the stepper motor from optical sensor to optical sensor (after cal)
 uint32_t                inputVoltRangemV = 460;         // 0 to 460 mV is the input voltage range; Based on max input current of 1 mA
 extern uint32_t         actualMeterRangeDeg = 250;      // 0 to 250 degrees is the actual meter range
