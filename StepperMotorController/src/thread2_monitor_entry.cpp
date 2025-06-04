@@ -76,8 +76,13 @@ uint16_t read_ADC16b (void)
     uint16_t        adc16bBuffer[6];
     R_ADC_ScanStart (&adc0_ctrl);
 
-    while (adc16b_conversion_complete == false)
-        adc16b_conversion_complete = false;
+    while (!adc16b_conversion_complete)
+    {
+        /* Wait for conversion to complete */
+    }
+
+    /* Reset flag for next conversion */
+    adc16b_conversion_complete = false;
 
     for (uint8_t i = 0; i < 6; i++)
     {
