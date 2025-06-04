@@ -1,0 +1,6 @@
+Extracting support files...
+09:05:54 **** Incremental Build of configuration Debug for project StepperMotorController ****
+make -r -j16 all 
+arm-none-eabi-size --format=berkeley "StepperMotorController.elf"
+   text	   data	    bss	    dec	    hex	filename
+  36880	    100	  12040	  49020	   bf7c	StepperMotorController.elf

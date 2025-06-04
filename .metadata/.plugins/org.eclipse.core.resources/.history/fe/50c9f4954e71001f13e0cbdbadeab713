@@ -1,0 +1,154 @@
+//**************************************************************************************
+// thread1_motor_drive
+//
+//  Created on: July 24, 2024
+//      Author: LeDD
+//
+//
+//**************************************************************************************
+
+//***********************************************************************************************************************
+// Include
+//***********************************************************************************************************************
+#include "appDefines.h"
+#include "motor_control.h"
+#include "controller_driver.h"
+#include <cstdlib>
+//***********************************************************************************************************************
+// Global variables
+//***********************************************************************************************************************
+volatile bool           power_interrupt = false;
+bool                    initialCompleted = false;
+static uint32_t         meter_resolution = 0;
+bool pwrInt;
+double                  signalVal;
+int                IntsignalVal;
+int cnt = 0;
+bool            flex_sensor;
+uint32_t        numberStep;
+uint32_t        lb = 5, ub = 200;
+uint32_t        currPos = 0;
+uint32_t        hysteresis = 2;
+uint32_t        nextRandNum;
+//***********************************************************************************************************************
+// Object
+//***********************************************************************************************************************
+motorCtrl       motorCtrl;
+driverHandler   driver;
+
+using namespace std;
+
+//***********************************************************************************************************************
+// thread1_motor_drive_entry
+//***********************************************************************************************************************
+void thread1_motor_drive_entry(void)
+{
+    uint32_t status = 0;
+
+
+    tx_thread_sleep (10);
+    status += driver.sdadc_initial();
+    tx_thread_sleep (5);
+    status += driver.peripheral_initial();
+    tx_thread_sleep (5);
+    status += driver.dac12_initial();
+
+    if (status != FSP_SUCCESS)
+    {
+        //Do something
+
+    }
+
+    //statusT1 = pointerInitial ();
+    tx_thread_sleep (5);
+    status = driver.dac12_output (AMPLIFIER_VOCM_MV);
+    tx_thread_sleep (5);
+    R_PORT4->PCNTR1 |= GREEN_LED_P4;
+
+    R_PORT1->PCNTR1 |= MTR_DRV_EN_A_P1;
+    R_PORT1->PCNTR1 |= MTR_DRV_EN_B_P1;
+
+    motorCtrl.pwmFrequency(24000);
+    motorCtrl.pwmDutyCycle(60);
+    motorCtrl.pwmOutputStart();
+
+
+    tx_thread_sleep (100);
+
+
+    motorCtrl.spinCW (400);
+    tx_thread_sleep (1000);
+    motorCtrl.setZero();
+//    motorCtrl.spinCCW (401);
+    tx_thread_sleep (10);
+//    motorCtrl.spinCW (300);
+
+    while (1)
+    {
+        while (!(R_PORT1->PIDR_b.PIDR12))
+        {
+            //Read adc value
+            signalVal = driver.sdadc_read();
+            //Rescale value to match stepper scaling (0 to 400 steps)
+            signalVal = signalVal / 1.18;
+            //Convert value to integer.
+            IntsignalVal = (int) signalVal;
+            //Make sure value is always positive
+            if (IntsignalVal < 0)
+            {
+                IntsignalVal = 0;
+            }
+            if (IntsignalVal > 400)
+            {
+                IntsignalVal = 400;
+            }
+
+
+            //Verify that the new command is valid for moving the motor CW
+            if ((IntsignalVal > currPos) && (IntsignalVal <= 400))
+            {
+                //Only move when a change is greater than 2 steps
+                if ((IntsignalVal - currPos) > hysteresis)
+                {
+                motorCtrl.spinCW(IntsignalVal - currPos);
+                currPos = IntsignalVal;
+                }
+            }
+             //Verify that the new command is valid for moving the motor CCW
+            else if (IntsignalVal < currPos)
+            {
+                //Only move when a change is greater than 2 steps
+                if ((currPos - IntsignalVal) > hysteresis)
+                {
+                motorCtrl.spinCCW(currPos - IntsignalVal);
+                currPos = IntsignalVal;
+                }
+            }
+            tx_thread_sleep (10);
+        }
+        if (power_interrupt)
+        {
+            power_interrupt = false;
+            motorCtrl.setZero();
+        }
+        tx_thread_sleep (10);
+    }
+}
+
+//***********************************************************************************************************************
+//  powerIRQ_callBack () Function
+//  Parameters: adc_callback_args_t
+//  Return: none
+//  Description: Function trigger on the power interrupt event
+//***********************************************************************************************************************
+void powerIRQ_callBack (external_irq_callback_args_t *p_args)
+{
+    FSP_PARAMETER_NOT_USED(p_args);
+    power_interrupt = true;
+}
+
+
+
+
+
+
