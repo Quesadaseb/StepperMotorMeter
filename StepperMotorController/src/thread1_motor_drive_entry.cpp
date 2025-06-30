@@ -33,7 +33,7 @@ extern bool             withinRange = 1;                // Within range flag
 extern bool             calComplete = 0;                // Calibration complete flag
 extern uint32_t         totalSteps;
 extern uint32_t         currPos = 0;
-uint32_t                hysteresis = 2;
+uint32_t                hysteresis = 1;
 extern uint32_t         newRange = 0;                   // New range of the stepper motor from optical sensor to optical sensor (after cal)
 uint32_t                inputVoltRangemV = 460;         // 0 to 460 mV is the input voltage range; Based on max input current of 1 mA
 extern uint32_t         actualMeterRangeDeg = 250;      // 0 to 250 degrees is the actual meter range
