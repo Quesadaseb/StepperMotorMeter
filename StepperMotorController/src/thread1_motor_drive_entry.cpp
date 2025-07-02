@@ -42,18 +42,21 @@ double                  scaleDown;                      // Scale down the sensor
 extern uint16_t         maxSteps = 800;                 // Maximum steps of the stepper motor
 uint16_t                elapsedTime = 0;
 bool                    sleepState = 0;
-bool                    accelerationState = true; 
 extern uint8_t          motorStepDelay = 2;
-bool                    atTargetLocation = true;      // Flag to check if the motor has stepped out of the initial position
-uint8_t                 accelerationTimer = 0;        
+uint8_t                 fastMoveThreshold = 10;          // ADC Threshold to determine if the motor should move quickly
 
 // Define the size of the moving average filter
-const int filterSize = 5;
+const int filterSize = 100;
 std::vector<double> filterBuffer(filterSize, 0.0);
 int filterIndex = 0;
 
 // Function prototype for applyMovingAverageFilter
-double applyMovingAverageFilter(double newValue);
+void applyMovingAverageFilter(double newValue);
+
+// Function to reset all elements of the filter buffer to a specific value
+void resetFilterBuffer(double newBaseline);
+
+double getFilteredValue();
 
 // Define an enum for motor states
 enum MotorState
@@ -126,7 +129,6 @@ void thread1_motor_drive_entry(void)
             if (wake_interrupt == true)
             {
                 wake_interrupt = false;
-                accelerationState = false;
                 currPos = 0;
                 totalSteps = 0;
                 calComplete = 0;
@@ -147,8 +149,18 @@ void thread1_motor_drive_entry(void)
             {
                 signalVal = 0;
             }
+            
+            if (abs(getFilteredValue() - signalVal) >= fastMoveThreshold) // If the value is close to the fast move threshold, set it to 0
+            {
+                resetFilterBuffer(signalVal); // Reset the filter buffer to new baseline value to move faster to that point
+                signalVal = getFilteredValue(); // Get the filtered value from the buffer
+            }
+            else
+            {
+                applyMovingAverageFilter(signalVal); // Apply the moving average filter to smooth the signal value
+                signalVal = getFilteredValue(); // Get the filtered value from the buffer
+            }
 
-            //signalVal = applyMovingAverageFilter(signalVal);
             #ifndef FULL_360_OPERATION
                 //Rescale value to match stepper scaling (0 to x steps). Based on calibration. ~350 steps
                 signalVal = (signalVal * (double)(((double)newRange) / ((double)inputVoltRangemV))) ;
@@ -236,88 +248,26 @@ void thread1_motor_drive_entry(void)
             motorCtrl.stepDelay (1);
             #endif
 
-                //Only move when a change is greater than 2 steps
-            if ((IntsignalVal > currPos) && ((IntsignalVal - currPos) > hysteresis)) // want to Spin CW
-            {
-                
-                if (accelerationState == true)
-                {
-                    motorStepDelay = 2;
-                }
-                else if (motorState == CCW)
-                {
-                    motorStepDelay = 2;
-                    accelerationTimer = 0;
-                }
-                else
-                {
-                    motorStepDelay = 1;
-                }
-                
+                //Only move when a change is greater than 1 steps
+            if ((IntsignalVal > currPos) && ((IntsignalVal - currPos) >= hysteresis)) // want to Spin CW
+            {   
                 motorCtrl.spinCW(IntsignalVal - currPos);
                 motorState = CW;
-                //currPos = IntsignalVal;
-                atTargetLocation = false;
             }
-                //Only move when a change is greater than 2 steps
-            else if ((IntsignalVal < currPos) && ((currPos - IntsignalVal) > hysteresis)) // want to spin CCW
+                //Only move when a change is greater than 1 steps
+            else if ((IntsignalVal < currPos) && ((currPos - IntsignalVal) >= hysteresis)) // want to spin CCW
             {
-                
-                if (accelerationState == true)
-                {
-                    motorStepDelay = 2;
-                }
-                else if (motorState == CW)
-                {
-                    motorStepDelay = 2;
-                    accelerationTimer = 0;
-                }
-                else
-                {
-                    motorStepDelay = 1;
-                }
-                
                 motorCtrl.spinCCW(currPos - IntsignalVal);
                 motorState = CCW;
-                //currPos = IntsignalVal;
-                atTargetLocation = false;
             } 
             else
             {
-                atTargetLocation = true;
-                accelerationTimer = 0;
                 motorState = Still;
             }
-
-            if(atTargetLocation == false)
-            {
-                accelerationTimer ++;
-            }
-
-            if(accelerationTimer >= 2)
-            {
-                accelerationState = false;
-            }
-            else
-            {
-                accelerationState = true;
-            }
-            /*
-            if (abs(IntsignalVal - (int)currPos) < 5)
-            {
-                accelerationState = true;
-            }
-            else
-            {
-                accelerationState = false;
-            }
-            */
-
         }
         if (power_interrupt)
         {
             power_interrupt = false;
-            accelerationState = false;
             motorCtrl.spinCCW(currPos);
             currPos = 0;
             sleepState = true;
@@ -329,20 +279,43 @@ void thread1_motor_drive_entry(void)
 //***********************************************************************************************************************
 //  applyMovingAverageFilter () Function
 //  Parameters: newValue
-//  Return: moving average variable
-//  Description: Function to apply the moving average filter
+//  Return: None
+//  Description: Function to apply new value to the moving average filter
 //***********************************************************************************************************************
-double applyMovingAverageFilter(double newValue) 
+void applyMovingAverageFilter(double newValue) 
 {
     // Update the buffer with the new value
     filterBuffer[filterIndex] = newValue;
     filterIndex = (filterIndex + 1) % filterSize;
+}
 
-    // Calculate the average of the values in the buffer
+//***********************************************************************************************************************
+//  getFilteredValue () Function
+//  Parameters: none
+//  Return: double (the calculated moving average of the filter buffer)
+//  Description: This function calculates and returns the moving average of the values currently stored in the filter 
+//               buffer. It uses std::accumulate to sum up all the elements in the buffer and divides the sum by the 
+//               buffer size to compute the average.
+//***********************************************************************************************************************
+double getFilteredValue() 
+{
+    // Calculate the sum of all elements in the filter buffer
     double sum = std::accumulate(filterBuffer.begin(), filterBuffer.end(), 0.0);
+
+    // Return the average value
     return sum / filterSize;
 }
 
+//***********************************************************************************************************************
+//  resetFilterBuffer () Function
+//  Parameters: x (value to set all elements of the buffer)
+//  Return: none
+//  Description: Function to reset all elements of the filter buffer to a specific value
+//***********************************************************************************************************************
+void resetFilterBuffer(double newBaseline)
+{
+    std::fill(filterBuffer.begin(), filterBuffer.end(), newBaseline);
+}
 //***********************************************************************************************************************
 //  powerIRQ_callBack () Function
 //  Parameters: adc_callback_args_t

@@ -92,6 +92,8 @@ void motorCtrl::pwmOutputStart (void)
 void motorCtrl::spinCW (uint32_t numStep)
 {
     R_PORT4->PCNTR1 &= ~RED_LED_P4;
+    uint32_t iterationCount = 0; // Counter to track iterations
+
     while (numStep)    // Step out of of reflex sensor
     {
         #ifdef HALF_STEP_MOTOR_CTRL
@@ -110,14 +112,25 @@ void motorCtrl::spinCW (uint32_t numStep)
  
         numStep--;
         currPos++;
-        
-        if(numStep < 5)
+        // Increment the iteration counter
+        iterationCount++;
+
+        if (calComplete == 0)
+        {
+
+            stepDelay (MOTOR_STEP_DELAY_CAL);
+        }
+        else if (iterationCount <= 5 ) // acceleration
         {
             stepDelay (2);
-        } 
+        }
+        else if(numStep < 5) // deceleration
+        {
+            stepDelay (2);
+        }
         else
         {
-            stepDelay (motorStepDelay);
+            stepDelay (1);
         }
     }
 }
@@ -132,6 +145,8 @@ void motorCtrl::spinCW (uint32_t numStep)
 void motorCtrl::spinCCW (uint32_t numStep)
 {
     R_PORT4->PCNTR1 &= ~RED_LED_P4;
+    uint32_t iterationCount = 0; // Counter to track iterations
+
     while (numStep )
     {
         #ifdef HALF_STEP_MOTOR_CTRL
@@ -150,18 +165,24 @@ void motorCtrl::spinCCW (uint32_t numStep)
 
         numStep--;
         currPos--;
+        // Increment the iteration counter
+        iterationCount++;
         if (calComplete == 0)
         {
 
             stepDelay (MOTOR_STEP_DELAY_CAL);
         }
-        else if(numStep < 5)
+        else if (iterationCount <= 5 ) // acceleration
+        {
+            stepDelay (2);
+        }
+        else if(numStep < 5) // deceleration
         {
             stepDelay (2);
         }
         else
         {
-            stepDelay (motorStepDelay);
+            stepDelay (1);
         }
 
     }
